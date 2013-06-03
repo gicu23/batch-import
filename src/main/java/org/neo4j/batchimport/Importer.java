@@ -124,14 +124,22 @@ public class Importer {
 
         BufferedReader bf = new BufferedReader(reader);
 
-        final RowData data = new RowData(bf.readLine(), "\t", 1);
+        RowData data = new RowData(bf.readLine(), "\t", 1);
         Object[] node = new Object[1];
         String line;
         report.reset();
         while ((line = bf.readLine()) != null) {
-            final Map<String, Object> properties = data.updateMap(line, node);
-            index.add(id(node[0]), properties);
-            report.dots();
+            if (line.startsWith("-")) { //ignore line, but change header
+                line = bf.readLine();
+                if (line == null) {
+                    break;
+                }
+                data = new RowData(line, "\t", 1);
+            } else {
+                final Map<String, Object> properties = data.updateMap(line, node);
+                index.add(id(node[0]), properties);
+                report.dots();
+            }
         }
 
         report.finishImport("Done inserting into " + indexName + " Index");
