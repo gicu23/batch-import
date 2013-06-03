@@ -16,13 +16,14 @@ import static org.neo4j.index.impl.lucene.LuceneIndexImplementation.EXACT_CONFIG
 import static org.neo4j.index.impl.lucene.LuceneIndexImplementation.FULLTEXT_CONFIG;
 
 public class Importer {
+
     private static Report report;
     private BatchInserter db;
     private BatchInserterIndexProvider lucene;
-    
+
     public Importer(File graphDb) {
         Map<String, String> config = Utils.config();
-                
+
         db = createBatchInserter(graphDb, config);
         lucene = createIndexProvider();
         report = createReport();
@@ -56,13 +57,13 @@ public class Importer {
             if (nodesFile.exists()) {
                 importer.importNodes(new FileReader(nodesFile));
             } else {
-                System.err.println("Nodes file "+nodesFile+" does not exist");
+                System.err.println("Nodes file " + nodesFile + " does not exist");
             }
 
             if (relationshipsFile.exists()) {
                 importer.importRelationships(new FileReader(relationshipsFile));
             } else {
-                System.err.println("Relationships file "+relationshipsFile+" does not exist");
+                System.err.println("Relationships file " + relationshipsFile + " does not exist");
             }
 
 
@@ -73,7 +74,7 @@ public class Importer {
                 String indexFileName = args[i + 3];
                 importer.importIndex(elementType, indexName, indexType, indexFileName);
             }
-		} finally {
+        } finally {
             importer.finish();
         }
     }
@@ -86,12 +87,20 @@ public class Importer {
 
     void importNodes(Reader reader) throws IOException {
         BufferedReader bf = new BufferedReader(reader);
-        final RowData data = new RowData(bf.readLine(), "\t", 0);
+        RowData data = new RowData(bf.readLine(), "\t", 1);
         String line;
         report.reset();
         while ((line = bf.readLine()) != null) {
-            db.createNode(data.updateMap(line));
-            report.dots();
+            if (line.startsWith("-")) { //ignore line, but change header
+                line = bf.readLine();
+                if (line == null) {
+                    break;
+                }
+                data = new RowData(line, "\t", 1);
+            } else {
+                db.createNode(Integer.parseInt(line.split("\t")[0]), data.updateMap(line));
+                report.dots();
+            }
         }
         report.finishImport("Nodes");
     }
@@ -114,17 +123,17 @@ public class Importer {
     void importIndex(String indexName, BatchInserterIndex index, Reader reader) throws IOException {
 
         BufferedReader bf = new BufferedReader(reader);
-        
+
         final RowData data = new RowData(bf.readLine(), "\t", 1);
         Object[] node = new Object[1];
         String line;
         report.reset();
-        while ((line = bf.readLine()) != null) {        
+        while ((line = bf.readLine()) != null) {
             final Map<String, Object> properties = data.updateMap(line, node);
             index.add(id(node[0]), properties);
             report.dots();
         }
-                
+
         report.finishImport("Done inserting into " + indexName + " Index");
     }
 
@@ -147,7 +156,7 @@ public class Importer {
     private void importIndex(String elementType, String indexName, String indexType, String indexFileName) throws IOException {
         File indexFile = new File(indexFileName);
         if (!indexFile.exists()) {
-            System.err.println("Index file "+indexFile+" does not exist");
+            System.err.println("Index file " + indexFile + " does not exist");
             return;
         }
         BatchInserterIndex index = elementType.equals("node_index") ? nodeIndexFor(indexName, indexType) : relationshipIndexFor(indexName, indexType);
